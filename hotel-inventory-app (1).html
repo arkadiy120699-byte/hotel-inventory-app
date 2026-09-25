@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Склад — инвентаризация</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EEF0E8;
+    --surface: #F7F8F3;
+    --ink: #23281F;
+    --ink-soft: #5B5E52;
+    --line: #D9D6C8;
+    --accent: #B8863B;
+    --accent-soft: #EADFC5;
+    --low: #B4432E;
+    --low-bg: #F5DFDA;
+    --ok: #5C7A52;
+    --ok-bg: #E1E9DC;
+    font-family: 'Inter', 'Heebo', sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: inherit; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    min-height: 100%;
+  }
+  html[dir="rtl"] body { font-family: 'Heebo', 'Inter', sans-serif; }
+
+  header {
+    padding: 18px 20px 14px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    gap: 12px;
+  }
+  header .tag {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+  html[dir="rtl"] header .tag { font-family: 'Heebo', sans-serif; letter-spacing: 0; }
+  header h1 {
+    font-size: 19px;
+    font-weight: 600;
+    margin: 4px 0 0;
+  }
+
+  .lang-switch {
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 2px;
+    flex-shrink: 0;
+  }
+  .lang-switch button {
+    border: none;
+    background: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    padding: 5px 8px;
+    border-radius: 4px;
+  }
+  .lang-switch button.active {
+    background: var(--ink);
+    color: var(--bg);
+  }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0 90px;
+  }
+
+  .category {
+    margin-top: 22px;
+  }
+  .category-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px 8px;
+  }
+  .category-label .bar {
+    width: 4px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 1px;
+    flex-shrink: 0;
+  }
+  .category-label span {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  html[dir="rtl"] .category-label span { font-family: 'Heebo', sans-serif; letter-spacing: 0; font-weight: 700; }
+
+  .item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 20px;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    gap: 12px;
+  }
+  .item-row:first-of-type { border-top: none; }
+  .item-name {
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+
+  .qty-input {
+    width: 64px;
+    text-align: right;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: var(--ink);
+    flex-shrink: 0;
+    direction: ltr;
+  }
+  .qty-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .stock-value {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    direction: ltr;
+  }
+  .stock-value .num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.ok { background: var(--ok); }
+  .dot.low { background: var(--low); }
+  .item-row.low-row { background: var(--low-bg); }
+
+  .save-bar {
+    position: fixed;
+    bottom: 62px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    padding: 10px 20px;
+    pointer-events: none;
+  }
+  .save-btn {
+    pointer-events: auto;
+    width: 100%;
+    background: var(--ink);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    padding: 13px;
+    font-family: 'Inter', 'Heebo', sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(35,40,31,0.25);
+  }
+  .save-btn:active { opacity: 0.85; }
+
+  nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  nav button {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 12px 0 10px;
+    font-family: 'Inter', 'Heebo', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  nav button .icon { font-size: 18px; }
+  nav button.active { color: var(--accent); }
+  nav button.active .icon { color: var(--accent); }
+
+  .empty-note {
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="tag" id="headerTag">СКЛАД</div>
+    <h1 id="headerTitle">Расходники отеля</h1>
+  </div>
+  <div class="lang-switch">
+    <button data-lang="ru" class="active">RU</button>
+    <button data-lang="en">EN</button>
+    <button data-lang="he">HE</button>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<div class="save-bar" id="saveBar" style="display:none;">
+  <button class="save-btn" id="saveBtn"></button>
+</div>
+
+<nav>
+  <button id="tabInventory" class="active">
+    <span class="icon">✎</span>
+    <span id="navInventoryLabel"></span>
+  </button>
+  <button id="tabStock">
+    <span class="icon">▤</span>
+    <span id="navStockLabel"></span>
+  </button>
+</nav>
+
+<script type="module">
+  // Категории и позиции — только id и порог, названия отдельно в NAMES по языкам
+  const CATEGORIES = [
+    { id: "bags", items: [
+      { id: "black_bags", min: 2 },
+      { id: "orange_bags", min: 2 },
+      { id: "small_bags", min: 1 },
+    ]},
+    { id: "bathroom", items: [
+      { id: "shower_gel", min: 2 },
+      { id: "conditioner", min: 2 },
+      { id: "shampoo", min: 2 },
+      { id: "soap", min: 2 },
+      { id: "body_lotion", min: 2 },
+      { id: "toilet_paper", min: 10 },
+      { id: "slippers", min: 1 },
+      { id: "sewing_kit", min: 2 },
+      { id: "cotton_buds", min: 2 },
+      { id: "shoe_sponge", min: 2 },
+      { id: "shower_cap", min: 2 },
+    ]},
+    { id: "kitchen", items: [
+      { id: "water", min: 15 },
+      { id: "cava", min: 10 },
+      { id: "ouzo", min: 10 },
+      { id: "black_tea", min: 2 },
+      { id: "green_tea", min: 2 },
+      { id: "black_coffee", min: 2 },
+      { id: "nescafe", min: 2 },
+      { id: "brown_sugar", min: 2 },
+      { id: "white_sugar", min: 2 },
+      { id: "paper_cups", min: 4 },
+    ]},
+    { id: "cleaning", items: [
+      { id: "glass_cleaner", min: 10 },
+      { id: "cube_wipes", min: 1 },
+      { id: "descaler", min: 2 },
+      { id: "gloves_s", min: 2 },
+      { id: "gloves_m", min: 2 },
+      { id: "gloves_l", min: 2 },
+      { id: "gloves_xl", min: 2 },
+      { id: "hand_towels", min: 5 },
+      { id: "ovesh", min: 10 },
+    ]},
+    { id: "bedding", items: [
+      { id: "big_pillowcase", min: 2 },
+      { id: "small_pillowcase", min: 2 },
+      { id: "big_sheet", min: 2 },
+      { id: "small_sheet", min: 2 },
+      { id: "big_duvet_cover", min: 2 },
+      { id: "small_duvet_cover", min: 2 },
+    ]},
+    { id: "towels", items: [
+      { id: "big_towel", min: 2 },
+      { id: "small_towel", min: 2 },
+      { id: "floor_towel", min: 2 },
+      { id: "pool_towel", min: 2 },
+    ]},
+  ];
+
+  const CATEGORY_NAMES = {
+    bags:     { ru: "Пакеты для мусора",  en: "Trash bags",      he: "שקיות אשפה" },
+    bathroom: { ru: "Ванная комната",     en: "Bathroom",        he: "חדר אמבטיה" },
+    kitchen:  { ru: "Кухня / напитки",    en: "Kitchen / Drinks", he: "מטבח / משקאות" },
+    cleaning: { ru: "Уборка",             en: "Cleaning",        he: "ניקיון" },
+    bedding:  { ru: "Постельное бельё",   en: "Bedding",         he: "מצעים" },
+    towels:   { ru: "Полотенца",          en: "Towels",          he: "מגבות" },
+  };
+
+  const ITEM_NAMES = {
+    black_bags:    { ru: "Чёрные пакеты",       en: "Black bags",       he: "שקיות שחורות" },
+    orange_bags:   { ru: "Оранжевые пакеты",    en: "Orange bags",      he: "שקיות כתומות" },
+    small_bags:    { ru: "Маленькие пакеты",    en: "Small bags",       he: "שקיות קטנות" },
+    shower_gel:    { ru: "Гель для душа",       en: "Shower gel",       he: "ג'ל רחצה" },
+    conditioner:   { ru: "Кондиционер",         en: "Conditioner",      he: "מרכך שיער" },
+    shampoo:       { ru: "Шампунь",             en: "Shampoo",          he: "שמפו" },
+    soap:          { ru: "Мыло",                en: "Soap",             he: "סבון" },
+    body_lotion:   { ru: "Боди лосьон",         en: "Body lotion",      he: "קרם גוף" },
+    toilet_paper:  { ru: "Туалетная бумага",    en: "Toilet paper",     he: "נייר טואלט" },
+    slippers:      { ru: "Тапки",               en: "Slippers",         he: "נעלי בית" },
+    sewing_kit:    { ru: "Нитки",               en: "Sewing kit",       he: "ערכת תפירה" },
+    cotton_buds:   { ru: "Ушные палочки",       en: "Cotton buds",      he: "מקלוני אוזניים" },
+    shoe_sponge:   { ru: "Губка для обуви",     en: "Shoe sponge",      he: "ספוג נעליים" },
+    shower_cap:    { ru: "Шапочка для душа",    en: "Shower cap",       he: "כובע רחצה" },
+    water:         { ru: "Вода",                en: "Water",            he: "מים" },
+    cava:          { ru: "Шампанское",          en: "Champagne",        he: "שמפניה" },
+    ouzo:          { ru: "Арак",                en: "Arak",             he: "ערק" },
+    black_tea:     { ru: "Чай чёрный",          en: "Black tea",        he: "תה שחור" },
+    green_tea:     { ru: "Чай зелёный",         en: "Green tea",        he: "תה ירוק" },
+    black_coffee:  { ru: "Кофе чёрный",         en: "Black coffee",     he: "קפה שחור" },
+    nescafe:       { ru: "Кофе нескафе",        en: "Instant coffee",   he: "קפה נמס" },
+    brown_sugar:   { ru: "Сахар коричневый",    en: "Brown sugar",      he: "סוכר חום" },
+    white_sugar:   { ru: "Сахар белый",         en: "White sugar",      he: "סוכר לבן" },
+    paper_cups:    { ru: "Бумажные стаканы",    en: "Paper cups",       he: "כוסות נייר" },
+    glass_cleaner: { ru: "Средство для стёкол", en: "Glass cleaner",    he: "נוזל לניקוי זכוכית" },
+    cube_wipes:    { ru: "Салфетки кубики",     en: "Wipe cubes",       he: "מגבוני קוביות" },
+    hand_towels:   { ru: "Бумажные полотенца для рук", en: "Paper hand towels", he: "מגבות נייר לידיים" },
+    descaler:      { ru: "Антикальк",           en: "Descaler",         he: "מסיר אבנית" },
+    gloves_s:      { ru: "Перчатки S",          en: "Gloves S",         he: "כפפות S" },
+    gloves_m:      { ru: "Перчатки M",          en: "Gloves M",         he: "כפפות M" },
+    gloves_l:      { ru: "Перчатки L",          en: "Gloves L",         he: "כפפות L" },
+    gloves_xl:     { ru: "Перчатки XL",         en: "Gloves XL",        he: "כפפות XL" },
+    ovesh:         { ru: "Средство от плесени", en: "Mold remover",     he: "מסיר עובש" },
+    big_pillowcase:   { ru: "Большие наволочки",   en: "Large pillowcases", he: "ציפיות גדולות" },
+    small_pillowcase: { ru: "Маленькие наволочки", en: "Small pillowcases", he: "ציפיות קטנות" },
+    big_sheet:        { ru: "Большая простынь",    en: "Large bedsheet",    he: "סדין גדול" },
+    small_sheet:      { ru: "Маленькая простынь",  en: "Small bedsheet",    he: "סדין קטן" },
+    big_duvet_cover:  { ru: "Большой пододеяльник", en: "Large duvet cover", he: "ציפית שמיכה גדולה" },
+    small_duvet_cover:{ ru: "Маленький пододеяльник", en: "Small duvet cover", he: "ציפית שמיכה קטנה" },
+    big_towel:        { ru: "Большое полотенце",   en: "Large towel",       he: "מגבת גדולה" },
+    small_towel:      { ru: "Маленькое полотенце", en: "Small towel",       he: "מגבת קטנה" },
+    floor_towel:      { ru: "Полотенце для пола",  en: "Floor towel",       he: "מגבת רצפה" },
+    pool_towel:       { ru: "Полотенце для бассейна", en: "Pool towel",     he: "מגבת בריכה" },
+  };
+
+  const UI = {
+    ru: { tag: "СКЛАД", title: "Расходники отеля", inventory: "Инвентаризация", stock: "Остатки",
+          save: "Сохранить инвентаризацию", noData: "нет данных" },
+    en: { tag: "STOCK", title: "Hotel supplies", inventory: "Inventory", stock: "Stock",
+          save: "Save inventory", noData: "no data" },
+    he: { tag: "מלאי", title: "חומרים מתכלים במלון", inventory: "ספירת מלאי", stock: "מלאי נוכחי",
+          save: "שמור ספירה", noData: "אין נתונים" },
+  };
+
+  // ---- Firebase ----
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  import { getFirestore, collection, doc, setDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCIPZkPudHWuik6nss4yg_-0GXY0gTKMlM",
+    authDomain: "salary-counter-a98bb.firebaseapp.com",
+    projectId: "salary-counter-a98bb",
+    storageBucket: "salary-counter-a98bb.firebasestorage.app",
+    messagingSenderId: "646049424621",
+    appId: "1:646049424621:web:321a5a397606ace46718e4",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const INVENTORY_COLLECTION = "inventory_items";
+
+  // Текущий известный остаток по каждой позиции (синхронизируется из Firestore в реальном времени)
+  let stock = {};
+  let ready = false;
+
+  let currentTab = 'inventory';
+  let currentLang = 'ru';
+  const main = document.getElementById('main');
+  const saveBar = document.getElementById('saveBar');
+
+  function applyLang() {
+    const t = UI[currentLang];
+    document.documentElement.lang = currentLang;
+    document.documentElement.dir = currentLang === 'he' ? 'rtl' : 'ltr';
+    document.getElementById('headerTag').textContent = t.tag;
+    document.getElementById('headerTitle').textContent = t.title;
+    document.getElementById('navInventoryLabel').textContent = t.inventory;
+    document.getElementById('navStockLabel').textContent = t.stock;
+    document.getElementById('saveBtn').textContent = t.save;
+    document.querySelectorAll('.lang-switch button').forEach(b => {
+      b.classList.toggle('active', b.dataset.lang === currentLang);
+    });
+  }
+
+  function renderInventory() {
+    saveBar.style.display = 'block';
+    main.innerHTML = CATEGORIES.map(cat => `
+      <div class="category">
+        <div class="category-label"><div class="bar"></div><span>${CATEGORY_NAMES[cat.id][currentLang]}</span></div>
+        ${cat.items.map(item => `
+          <div class="item-row">
+            <div class="item-name">${ITEM_NAMES[item.id][currentLang]}</div>
+            <input class="qty-input" type="number" inputmode="numeric" min="0"
+              data-id="${item.id}" placeholder="—"
+              value="${stock[item.id] ?? ''}">
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  }
+
+  function renderStock() {
+    saveBar.style.display = 'none';
+    const t = UI[currentLang];
+    if (!ready) {
+      main.innerHTML = `<div class="empty-note">…</div>`;
+      return;
+    }
+    main.innerHTML = CATEGORIES.map(cat => `
+      <div class="category">
+        <div class="category-label"><div class="bar"></div><span>${CATEGORY_NAMES[cat.id][currentLang]}</span></div>
+        ${cat.items.map(item => {
+          const qty = stock[item.id];
+          const known = qty !== undefined;
+          const low = known && qty < item.min;
+          return `
+            <div class="item-row ${low ? 'low-row' : ''}">
+              <div class="item-name">${ITEM_NAMES[item.id][currentLang]}</div>
+              <div class="stock-value">
+                ${known ? `<span class="dot ${low ? 'low' : 'ok'}"></span><span class="num">${qty}</span>` : `<span style="color:var(--ink-soft); font-size:13px;">${t.noData}</span>`}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `).join('');
+  }
+
+  function render() {
+    if (currentTab === 'inventory') renderInventory(); else renderStock();
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tabInventory').classList.toggle('active', tab === 'inventory');
+    document.getElementById('tabStock').classList.toggle('active', tab === 'stock');
+    render();
+  }
+
+  document.getElementById('tabInventory').onclick = () => switchTab('inventory');
+  document.getElementById('tabStock').onclick = () => switchTab('stock');
+
+  document.querySelectorAll('.lang-switch button').forEach(btn => {
+    btn.onclick = () => {
+      currentLang = btn.dataset.lang;
+      applyLang();
+      render();
+    };
+  });
+
+  document.getElementById('saveBtn').onclick = async () => {
+    const btn = document.getElementById('saveBtn');
+    const original = btn.textContent;
+    btn.textContent = '…';
+    btn.disabled = true;
+    const writes = [];
+    document.querySelectorAll('.qty-input').forEach(input => {
+      if (input.value !== '') {
+        const id = input.dataset.id;
+        const qty = Number(input.value);
+        writes.push(setDoc(doc(db, INVENTORY_COLLECTION, id), { qty, updatedAt: serverTimestamp() }, { merge: true }));
+      }
+    });
+    try {
+      await Promise.all(writes);
+    } catch (e) {
+      console.error('Save failed', e);
+    }
+    btn.textContent = original;
+    btn.disabled = false;
+    switchTab('stock');
+  };
+
+  applyLang();
+  switchTab('inventory');
+
+  // Анонимный вход + подписка на изменения Firestore в реальном времени
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      onSnapshot(collection(db, INVENTORY_COLLECTION), (snapshot) => {
+        snapshot.forEach(docSnap => {
+          stock[docSnap.id] = docSnap.data().qty;
+        });
+        ready = true;
+        render();
+      }, (err) => {
+        console.error('Firestore listen error', err);
+      });
+    }
+  });
+
+  signInAnonymously(auth).catch(err => {
+    console.error('Anonymous sign-in failed', err);
+    main.innerHTML = `<div class="empty-note">Ошибка подключения к базе. Проверь, включена ли анонимная авторизация в Firebase Console.</div>`;
+  });
+</script>
+
+</body>
+</html>
